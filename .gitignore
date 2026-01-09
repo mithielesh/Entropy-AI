@@ -1,0 +1,13 @@
+# Secrets (CRITICAL)
+.env
+
+# Python System Files
+venv/
+__pycache__/
+*.pyc
+
+# Node/Javascript System Files (for your entropy-ui)
+node_modules/
+build/
+dist/
+.DS_Store

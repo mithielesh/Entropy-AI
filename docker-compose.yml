@@ -1,0 +1,29 @@
+services:
+  # SERVICE 1: The Victim (Java Spring Boot)
+  victim-app:
+    build: ./victim-app
+    container_name: victim_container
+    ports:
+      - "8080:8080"  # Expose port 8080 so YOU can see it in your browser
+    networks:
+      - entropy-net
+    volumes:
+      # CRITICAL: This allows the Agent to see/edit the Victim's code
+      - ./victim-app:/app/source-code
+
+  # SERVICE 2: The Attacker (Python + Gemini 3)
+  chaos-agent:
+    build: ./chaos-agent
+    container_name: agent_container
+    environment:
+      - TARGET_URL=http://victim-app:8080
+      - GEMINI_API_KEY=${GEMINI_API_KEY} # We will set this later
+    networks:
+      - entropy-net
+    volumes:
+      # The Agent mounts the SAME folder so it can "patch" the code
+      - ./victim-app:/target-code
+
+networks:
+  entropy-net:
+    driver: bridge
