@@ -9,17 +9,19 @@ interface LandingPageProps {
 
 const LandingPage: React.FC<LandingPageProps> = ({ onEnterLightning, onEnterAuth }) => {
 
-  // --- 1. THE FAKE TERMINAL LOGIC ---
+  // --- 1. THE FAKE TERMINAL LOGIC (FIXED FOR HYDRATION) ---
   const [terminalStep, setTerminalStep] = useState(0);
+  
+  // We use hardcoded strings for time to prevent Server/Client mismatches
   const terminalLogs = [
-    "> Initializing entropy kernels...",
-    "> Connecting to neural mesh [SECURE]...",
-    "> Allocating volatile memory...",
-    "> Bypass authorized...",
-    "> STREAM DETECTED: ID_9928X",
-    "> Calculating variance...",
-    "> ENTROPY LEVELS: CRITICAL (98.2%)",
-    "> Optimization suggestions generated."
+    { text: "> Initializing entropy kernels...", time: "00:00:01" },
+    { text: "> Connecting to neural mesh [SECURE]...", time: "00:00:04" },
+    { text: "> Allocating volatile memory...", time: "00:00:12" },
+    { text: "> Bypass authorized...", time: "00:00:15" },
+    { text: "> STREAM DETECTED: ID_9928X", time: "00:00:18" },
+    { text: "> Calculating variance...", time: "00:00:22" },
+    { text: "> ENTROPY LEVELS: CRITICAL (98.2%)", time: "00:00:24" },
+    { text: "> Optimization suggestions generated.", time: "00:00:29" }
   ];
 
   useEffect(() => {
@@ -61,10 +63,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterLightning, onEnterAuth
       </nav>
 
       {/* --- HERO SECTION --- */}
-      {/* FIX: Increased padding-top (pt-40) to push content down below navbar */}
       <section className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 text-center pt-40">
         
-        {/* Badge (Now properly spaced) */}
+        {/* Badge */}
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -92,7 +93,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterLightning, onEnterAuth
           </p>
         </motion.div>
 
-        {/* Action Buttons with CLEAR Explanation */}
+        {/* Action Buttons */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -116,13 +117,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterLightning, onEnterAuth
             </button>
           </div>
 
-          {/* Explicit Lightning Mode Explanation */}
           <p className="text-xs text-gray-500 mt-2 tracking-wide">
             <span className="text-purple-400 font-semibold">Lightning Mode:</span> Instant Access • No Login Required • RAM-Only Privacy
           </p>
         </motion.div>
 
-        {/* --- THE NEW "LIVE TERMINAL" PREVIEW --- */}
+        {/* --- LIVE TERMINAL PREVIEW --- */}
         <motion.div 
           initial={{ opacity: 0, y: 100, rotateX: 20 }}
           animate={{ opacity: 1, y: 0, rotateX: 0 }}
@@ -139,7 +139,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterLightning, onEnterAuth
             <div className="text-[10px] font-mono text-gray-600 flex items-center gap-2">
               <Terminal className="w-3 h-3" /> entropy_kernel_v2.exe
             </div>
-            <div className="w-10" /> {/* Spacer */}
+            <div className="w-10" /> 
           </div>
 
           {/* TERMINAL CONTENT */}
@@ -150,10 +150,11 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterLightning, onEnterAuth
                     key={index}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
-                    className={`${log.includes('CRITICAL') ? 'text-red-400' : log.includes('DETECTED') ? 'text-purple-400 font-bold' : 'text-green-400/80'}`}
+                    className={`${log.text.includes('CRITICAL') ? 'text-red-400' : log.text.includes('DETECTED') ? 'text-purple-400 font-bold' : 'text-green-400/80'}`}
                   >
-                    <span className="opacity-50 mr-2">[{new Date().toLocaleTimeString()}]</span>
-                    {log}
+                    {/* Replaced dynamic Date with static time prop */}
+                    <span className="opacity-50 mr-2">[{log.time}]</span>
+                    {log.text}
                   </motion.div>
                 ))}
                 <motion.div 
@@ -163,18 +164,16 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterLightning, onEnterAuth
                 />
              </div>
 
-             {/* Background Decoration to make it look "techy" */}
              <div className="absolute bottom-0 right-0 p-8 opacity-20 pointer-events-none">
                 <div className="w-32 h-32 border-r-2 border-b-2 border-purple-500 rounded-br-3xl" />
              </div>
           </div>
           
-          {/* Overlay fade at bottom */}
           <div className="absolute bottom-0 w-full h-24 bg-gradient-to-t from-[#030303] to-transparent pointer-events-none" />
         </motion.div>
       </section>
 
-      {/* --- BENTO GRID FEATURES (Unchanged) --- */}
+      {/* --- BENTO GRID FEATURES --- */}
       <section className="relative z-10 max-w-6xl mx-auto px-6 py-32">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Card 1 */}
