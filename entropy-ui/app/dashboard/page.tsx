@@ -1,188 +1,296 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-  LayoutDashboard, 
-  History, 
-  Settings, 
-  LogOut, 
-  Plus, 
-  Search, 
-  Bell, 
-  MoreVertical,
-  Shield,
-  Activity,
-  Zap
+  LayoutDashboard, History, Settings, LogOut, Plus, Search, 
+  Activity, Zap, Shield, Loader2, Cpu, Eye, Save, Terminal 
 } from 'lucide-react';
+
+interface ScanData {
+  _id: string;
+  projectName: string;
+  scanDate: string;
+  entropyScore: number;
+}
+
+interface User {
+  username: string;
+  _id: string;
+}
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('overview');
+  
+  // --- HYDRATION FIX STATE ---
+  const [isMounted, setIsMounted] = useState(false); // <--- 1. Add this
 
-  // Mock Data for "Recent Scans" (We will replace this in Phase 5)
-  const projects = [
-    { id: 1, name: "Alpha_Protocol_01", date: "2 mins ago", status: "Critical", entropy: "98%" },
-    { id: 2, name: "Neural_Net_V2", date: "4 hours ago", status: "Stable", entropy: "12%" },
-    { id: 3, name: "Encryption_Key_Gen", date: "1 day ago", status: "Analyzing", entropy: "45%" },
-  ];
+  const [activeTab, setActiveTab] = useState('overview');
+  const [user, setUser] = useState<User | null>(null);
+  const [scans, setScans] = useState<ScanData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showNewScanModal, setShowNewScanModal] = useState(false);
+  const [stats, setStats] = useState({ total: 0, avg: 0, critical: 0 });
+  
+  const [settings, setSettings] = useState({
+    aiModel: 'Gemini 1.5 Flash',
+    analysisDepth: 'Standard',
+    theme: 'Dark'
+  });
+
+  // --- INITIALIZATION ---
+  useEffect(() => {
+    // 2. Mark as mounted immediately
+    setIsMounted(true);
+
+    const storedUser = localStorage.getItem('user');
+    if (!storedUser) {
+      router.replace('/auth/login');
+      return;
+    }
+
+    try {
+      const parsedUser = JSON.parse(storedUser);
+      const validId = parsedUser._id || parsedUser.id;
+      if (!validId) throw new Error("ID Missing");
+      
+      setUser(parsedUser);
+      fetchHistory(validId);
+      
+      const savedSettings = localStorage.getItem('entropy_settings');
+      if (savedSettings) setSettings(JSON.parse(savedSettings));
+
+    } catch (err) {
+      console.error("Session Error:", err);
+      localStorage.removeItem('user');
+      router.replace('/auth/login');
+    }
+  }, [router]);
+
+  const fetchHistory = async (userId: string) => {
+    try {
+      const res = await fetch(`/api/history?userId=${userId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setScans(data);
+        calculateStats(data);
+      }
+    } catch (err) {
+      console.error("Fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateStats = (data: ScanData[]) => {
+    const total = data.length;
+    const avg = total > 0 ? Math.round(data.reduce((acc, c) => acc + c.entropyScore, 0) / total) : 0;
+    const critical = data.filter(s => s.entropyScore > 50).length;
+    setStats({ total, avg, critical });
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    router.push('/auth/login');
+  };
+
+  const saveSettings = () => {
+    localStorage.setItem('entropy_settings', JSON.stringify(settings));
+    alert("System Configuration Updated");
+  };
+
+  const filteredScans = scans.filter(s => 
+    s.projectName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // --- 3. HYDRATION GUARD ---
+  // If we haven't mounted yet, render NOTHING. 
+  // This ensures Server and Client HTML match (both are null initially).
+  if (!isMounted) return null;
+
+  // 4. Then check for user
+  if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-[#030303] text-white flex overflow-hidden font-sans">
+    <div className="min-h-screen bg-[#030303] text-white flex overflow-hidden font-sans selection:bg-purple-500/30 relative">
       
+      {/* --- NEW SCAN MODAL --- */}
+      {showNewScanModal && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="bg-[#0a0a0a] border border-white/10 p-8 rounded-2xl max-w-md w-full shadow-2xl relative">
+             <button onClick={() => setShowNewScanModal(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white">✕</button>
+             <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center mb-4 text-purple-400">
+                <Terminal size={24} />
+             </div>
+             <h2 className="text-xl font-bold mb-2">Initiate Neural Scan</h2>
+             <div className="bg-black border border-white/10 rounded-lg p-4 font-mono text-xs text-green-400 mb-6">
+                <p className="opacity-50 select-none"># Open your terminal and run:</p>
+                <p className="mt-2">python strategist.py</p>
+             </div>
+             <button onClick={() => setShowNewScanModal(false)} className="w-full bg-white text-black font-bold py-3 rounded-lg hover:bg-gray-200 transition">
+               Acknowledged
+             </button>
+          </div>
+        </div>
+      )}
+
       {/* --- SIDEBAR --- */}
-      <aside className="w-64 border-r border-white/5 bg-black/40 backdrop-blur-xl flex flex-col hidden md:flex">
-        
-        {/* Logo Area */}
-        <div className="h-16 flex items-center px-6 border-b border-white/5 gap-2">
-          <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
-          <span className="font-bold tracking-tight">ENTROPY.AI</span>
+      <aside className="w-64 border-r border-white/5 bg-black/40 backdrop-blur-xl flex flex-col hidden md:flex z-20">
+        <div className="h-16 flex items-center px-6 border-b border-white/5 gap-3">
+          <div className="relative">
+            <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse z-10 relative" />
+            <div className="absolute inset-0 bg-purple-500 blur-sm animate-pulse" />
+          </div>
+          <span className="font-bold tracking-tight text-lg tracking-widest">ENTROPY.AI</span>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 py-6 px-3 space-y-1">
           <NavItem icon={<LayoutDashboard size={18} />} label="Overview" active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} />
           <NavItem icon={<History size={18} />} label="History" active={activeTab === 'history'} onClick={() => setActiveTab('history')} />
           <NavItem icon={<Settings size={18} />} label="Settings" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
         </nav>
 
-        {/* User Profile (Bottom) */}
         <div className="p-4 border-t border-white/5">
            <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer group">
-              <div className="w-8 h-8 rounded bg-gradient-to-tr from-purple-500 to-blue-500 flex items-center justify-center font-bold text-xs">
-                OP
+              <div className="w-8 h-8 rounded bg-gradient-to-tr from-purple-600 to-blue-600 flex items-center justify-center font-bold text-xs shadow-lg shadow-purple-900/20">
+                {user.username.substring(0, 2).toUpperCase()}
               </div>
               <div className="flex-1 overflow-hidden">
-                 <p className="text-xs font-bold truncate">Operative_001</p>
-                 <p className="text-[10px] text-gray-500 truncate">Pro License</p>
+                 <p className="text-xs font-bold truncate text-gray-200">{user.username}</p>
+                 <p className="text-[10px] text-gray-500 truncate">Operative</p>
               </div>
-              
-              {/* --- LOGOUT BUTTON FIXED HERE --- */}
-              <button onClick={() => router.replace('/auth/login')}>
-                 <LogOut size={14} className="text-gray-500 group-hover:text-red-400 transition-colors" />
-              </button>
-
+              <button onClick={handleLogout}><LogOut size={16} className="text-gray-500 hover:text-red-400 transition-colors" /></button>
            </div>
         </div>
       </aside>
 
       {/* --- MAIN CONTENT --- */}
       <main className="flex-1 flex flex-col relative overflow-hidden">
-        
-        {/* Background Grid */}
-        <div className="absolute inset-0 z-0 pointer-events-none">
-           <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
-           <div className="absolute top-0 right-0 w-[500px] h-[300px] bg-purple-900/10 blur-[100px] rounded-full" />
-        </div>
-
-        {/* Top Header */}
-        <header className="h-16 border-b border-white/5 flex items-center justify-between px-8 relative z-10 bg-black/20 backdrop-blur-sm">
-           <div className="flex items-center text-sm text-gray-500 gap-2">
-              <span>Mission Control</span>
-              <span>/</span>
-              <span className="text-white">Overview</span>
+        <header className="h-16 border-b border-white/5 flex items-center justify-between px-8 relative z-10 bg-black/20 backdrop-blur-md">
+           <div className="text-sm text-gray-500 flex gap-2">
+             <span className="uppercase tracking-wider text-[10px]">Mission Control</span>/
+             <span className="text-white font-medium capitalize">{activeTab}</span>
            </div>
-
            <div className="flex items-center gap-4">
-              <div className="relative">
-                 <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                 <input 
-                   type="text" 
-                   placeholder="Search logs..." 
-                   className="bg-white/5 border border-white/10 rounded-full py-1.5 pl-9 pr-4 text-xs focus:outline-none focus:border-purple-500/50 transition-all w-64"
-                 />
-              </div>
-              <button className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors relative">
-                 <Bell size={14} />
-                 <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full" />
+              <button 
+  onClick={() => router.push('/dashboard/new')} // <--- UPDATED: Navigate to new page
+  className="flex items-center gap-2 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 text-purple-400 px-3 py-1.5 rounded-md text-xs transition"
+>
+  <Plus size={14} /> New Scan
+</button>
+              <button onClick={handleLogout} className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-md text-xs transition">
+                <LogOut size={14} /> Disconnect
               </button>
            </div>
         </header>
 
-        {/* Dashboard Body */}
         <div className="flex-1 overflow-y-auto p-8 relative z-10">
-           
-           {/* Welcome Section */}
-           <div className="flex justify-between items-end mb-8">
-              <div>
-                 <h1 className="text-3xl font-bold mb-1">Command Center</h1>
-                 <p className="text-gray-400 text-sm">System integrity is normal. 3 active analysis threads.</p>
-              </div>
-              <button className="flex items-center gap-2 bg-white text-black px-4 py-2 rounded-lg font-bold text-sm hover:scale-105 transition-transform shadow-[0_0_20px_rgba(255,255,255,0.2)]">
-                 <Plus size={16} />
-                 New Analysis
-              </button>
-           </div>
+           {/* OVERVIEW */}
+           {activeTab === 'overview' && (
+             <>
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                  <StatCard title="Total Scans" value={stats.total} icon={<Activity className="text-blue-400" />} />
+                  <StatCard title="Avg Entropy" value={`${stats.avg}%`} color={stats.avg > 50 ? 'text-red-400' : 'text-green-400'} icon={<Zap className="text-yellow-400" />} />
+                  <StatCard title="Threats" value={stats.critical} color="text-red-400" icon={<Shield className="text-red-400" />} />
+               </div>
+               <h3 className="font-bold text-sm tracking-wide text-gray-200 mb-4">RECENT ACTIVITY</h3>
+               <ScanList scans={scans.slice(0, 5)} loading={loading} router={router} />
+             </>
+           )}
 
-           {/* Stats Grid */}
-           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-              <StatCard title="Total Entropy" value="84.3 TB" change="+12%" icon={<Activity className="text-blue-400" />} />
-              <StatCard title="Threats Neutralized" value="1,204" change="+5%" icon={<Shield className="text-green-400" />} />
-              <StatCard title="Processing Power" value="98%" change="High Load" icon={<Zap className="text-yellow-400" />} />
-           </div>
+           {/* HISTORY */}
+           {activeTab === 'history' && (
+             <div className="max-w-4xl mx-auto">
+               <div className="flex items-center gap-4 mb-6 bg-white/5 p-4 rounded-xl border border-white/10">
+                  <Search className="text-gray-500" size={20} />
+                  <input 
+                    type="text" 
+                    placeholder="Search logs by project name..." 
+                    className="bg-transparent border-none focus:outline-none text-white w-full"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+               </div>
+               <ScanList scans={filteredScans} loading={loading} router={router} />
+             </div>
+           )}
 
-           {/* Recent Projects Table */}
-           <div className="rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden">
-              <div className="px-6 py-4 border-b border-white/5 flex justify-between items-center">
-                 <h3 className="font-bold">Recent Scans</h3>
-                 <button className="text-xs text-purple-400 hover:text-purple-300">View All</button>
-              </div>
-              
-              <div className="divide-y divide-white/5">
-                 {projects.map((project) => (
-                    <div key={project.id} className="px-6 py-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors group cursor-pointer">
-                       <div className="flex items-center gap-4">
-                          <div className={`w-2 h-2 rounded-full ${project.status === 'Critical' ? 'bg-red-500 animate-pulse' : project.status === 'Stable' ? 'bg-green-500' : 'bg-blue-500 animate-pulse'}`} />
-                          <div>
-                             <p className="font-bold text-sm text-gray-200">{project.name}</p>
-                             <p className="text-xs text-gray-500">{project.date}</p>
-                          </div>
-                       </div>
-                       
-                       <div className="flex items-center gap-8">
-                          <div className="text-right">
-                             <p className="text-[10px] text-gray-500 uppercase tracking-wider">Entropy</p>
-                             <p className="font-mono text-sm">{project.entropy}</p>
-                          </div>
-                          <button className="text-gray-600 hover:text-white transition-colors">
-                             <MoreVertical size={16} />
-                          </button>
-                       </div>
-                    </div>
-                 ))}
-              </div>
-           </div>
-
+           {/* SETTINGS */}
+           {activeTab === 'settings' && (
+             <div className="max-w-2xl mx-auto space-y-6">
+                <h2 className="text-2xl font-bold mb-6">Configuration</h2>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+                   <div className="flex items-center gap-3 mb-4">
+                      <Cpu className="text-purple-400" /> <h3 className="font-bold">Neural Engine</h3>
+                   </div>
+                   <select 
+                     value={settings.aiModel}
+                     onChange={(e) => setSettings({...settings, aiModel: e.target.value})}
+                     className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-sm focus:border-purple-500 outline-none"
+                   >
+                     <option>Gemini 1.5 Flash</option>
+                     <option>Gemini 1.5 Pro</option>
+                     <option>GPT-4o</option>
+                   </select>
+                </div>
+                <button onClick={saveSettings} className="w-full bg-white text-black font-bold py-3 rounded-lg hover:bg-gray-200 transition flex items-center justify-center gap-2">
+                   <Save size={18} /> Save Configurations
+                </button>
+             </div>
+           )}
         </div>
       </main>
     </div>
   );
 }
 
-// --- Helper Components ---
-
+// SUB-COMPONENTS
 function NavItem({ icon, label, active, onClick }: any) {
-   return (
-      <button 
-         onClick={onClick}
-         className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${active ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-      >
-         {icon}
-         <span className="font-medium">{label}</span>
-      </button>
-   )
+  return (
+     <button onClick={onClick} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all relative overflow-hidden group ${active ? 'bg-purple-500/10 text-purple-300 border border-purple-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+        <div className={`absolute left-0 top-0 bottom-0 w-0.5 transition-all ${active ? 'bg-purple-500' : 'bg-transparent group-hover:bg-gray-600'}`} />
+        {icon} <span className="font-medium">{label}</span>
+     </button>
+  );
 }
 
-function StatCard({ title, value, change, icon }: any) {
-   return (
-      <div className="p-6 rounded-xl border border-white/10 bg-white/[0.02] relative group overflow-hidden">
-         <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-         <div className="flex justify-between items-start mb-4">
-            <div className="p-2 rounded-lg bg-white/5 text-white">{icon}</div>
-            <span className="text-xs font-mono text-green-400 bg-green-400/10 px-2 py-0.5 rounded">{change}</span>
-         </div>
-         <h3 className="text-2xl font-bold mb-1">{value}</h3>
-         <p className="text-gray-500 text-xs uppercase tracking-wider">{title}</p>
-      </div>
-   )
+function StatCard({ title, value, color, icon }: any) {
+  return (
+     <div className="p-6 rounded-xl border border-white/10 bg-white/[0.02] relative group hover:border-white/20 transition-all">
+        <div className="flex justify-between items-start mb-4">
+           <div className="p-2.5 rounded-lg bg-white/5 text-white border border-white/5">{icon}</div>
+        </div>
+        <h3 className={`text-3xl font-bold mb-1 tracking-tight ${color || 'text-white'}`}>{value}</h3>
+        <p className="text-gray-500 text-xs uppercase tracking-wider font-semibold">{title}</p>
+     </div>
+  );
+}
+
+function ScanList({ scans, loading, router }: any) {
+  if (loading) return <div className="p-8 flex justify-center text-gray-500 gap-3"><Loader2 className="animate-spin" /> <span>Syncing...</span></div>;
+  if (scans.length === 0) return <div className="p-8 text-center text-gray-600 border border-dashed border-white/10 rounded-xl">No logs found.</div>;
+
+  return (
+    <div className="space-y-2">
+      {scans.map((scan: any) => (
+        <div 
+          key={scan._id} 
+          onClick={() => router.push(`/dashboard/${scan._id}`)}
+          className="px-6 py-4 flex items-center justify-between bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.05] hover:border-purple-500/30 transition-all cursor-pointer group"
+        >
+           <div className="flex items-center gap-4">
+              <div className={`w-2 h-2 rounded-full ${scan.entropyScore > 50 ? 'bg-red-500 shadow-[0_0_8px_red]' : 'bg-green-500 shadow-[0_0_8px_green]'}`} />
+              <div>
+                 <p className="font-bold text-sm text-gray-200 group-hover:text-purple-300 transition-colors">{scan.projectName}</p>
+                 <p className="text-xs text-gray-500 font-mono mt-0.5">{new Date(scan.scanDate).toLocaleString()}</p>
+              </div>
+           </div>
+           <div className="text-right">
+              <span className={`font-mono text-sm font-bold ${scan.entropyScore > 50 ? 'text-red-400' : 'text-green-400'}`}>{scan.entropyScore}%</span>
+           </div>
+        </div>
+      ))}
+    </div>
+  );
 }

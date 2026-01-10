@@ -4,24 +4,18 @@ const AnalysisSchema = new Schema({
   userId: {
     type: Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: true, 
   },
   projectName: { type: String, default: 'Unknown Project' },
   scanDate: { type: Date, default: Date.now },
-  entropyScore: { type: Number, default: 0 }, // 0-100
-  
-  // This matches the JSON output from your Python Script
-  cards: [{
-    name: String,
-    type: String,
-    severity: String,
-    thought_signature: String,
-    trigger_endpoint: String,
-    diagram_code: String,
-    fix_explanation: String
-  }]
+  entropyScore: { type: Number, default: 0 }, 
+
+  // THE FIX: Schema.Types.Mixed tells MongoDB "Accept anything here"
+  // This solves the casting error instantly.
+  cards: { type: Schema.Types.Mixed, default: [] }
 });
 
-const Analysis = models.Analysis || model('Analysis', AnalysisSchema);
+// We use 'AnalysisFinal' to ensure a brand new collection is created
+const Analysis = models.AnalysisFinal || model('AnalysisFinal', AnalysisSchema);
 
 export default Analysis;

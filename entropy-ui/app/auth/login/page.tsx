@@ -22,19 +22,15 @@ export default function LoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // LOGIC FIX: Use state for inputs to be safer
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-
-    const target = e.target as typeof e.target & {
-      0: { value: string }; // Email
-      1: { value: string }; // Password
-    };
-
-    const email = target[0].value;
-    const password = target[1].value;
 
     try {
       const res = await fetch('/api/auth/login', {
@@ -46,7 +42,15 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (res.ok) {
-        router.replace('/dashboard');
+        // --- CRITICAL FIX START ---
+        // We MUST save the user data to localStorage.
+        // The Dashboard checks for 'user', so if this is missing, it kicks you out.
+        localStorage.setItem('user', JSON.stringify(data.user));
+        console.log("✅ Credentials accepted. Token saved.");
+        
+        // Now it is safe to redirect
+        router.push('/dashboard'); 
+        // --- CRITICAL FIX END ---
       } else {
         setError(data.message || 'Login failed');
       }
@@ -103,6 +107,8 @@ export default function LoginPage() {
               <input 
                 type="email" 
                 required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="operative@entropy.ai"
                 className="w-full bg-white/5 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-sm focus:outline-none focus:border-purple-500/50 focus:bg-white/10 transition-all placeholder:text-gray-700"
               />
@@ -120,6 +126,8 @@ export default function LoginPage() {
               <input 
                 type="password" 
                 required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 className="w-full bg-white/5 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-sm focus:outline-none focus:border-purple-500/50 focus:bg-white/10 transition-all placeholder:text-gray-700"
               />
@@ -131,14 +139,14 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full py-3 bg-white text-black font-bold rounded-lg hover:bg-gray-200 transition-all active:scale-95 flex items-center justify-center gap-2 mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-             {loading ? (
-               <span className="animate-pulse">Authenticating...</span>
-             ) : (
-               <>
-                 <span>Initialize Session</span>
-                 <ArrowRight className="w-4 h-4" />
-               </>
-             )}
+              {loading ? (
+                <span className="animate-pulse">Authenticating...</span>
+              ) : (
+                <>
+                  <span>Initialize Session</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
           </button>
         </form>
 

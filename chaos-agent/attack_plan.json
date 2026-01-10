@@ -1,0 +1,38 @@
+[
+  {
+    "name": "The Ghost Inventory Siphon",
+    "type": "Race Condition (Time-of-Check to Time-of-Use)",
+    "severity": "High",
+    "thought_signature": "The check for inventory availability and the subsequent decrement are not performed atomically, creating a window of vulnerability during the sleep period. Multiple concurrent threads can read the same inventory value and bypass the 'Sold Out' logic, resulting in negative stock levels.",
+    "trigger_endpoint": "/api/buy",
+    "diagram_code": "sequenceDiagram; participant C1 as Client 1; participant C2 as Client 2; participant S as Server; Note over S: inventory = 1; C1->>S: GET /buy; C2->>S: GET /buy; S->>C1: Thread 1: inventory > 0 (True); S->>C2: Thread 2: inventory > 0 (True); Note over S: Both threads sleep 10ms; S->>C1: inventory becomes 0; S->>C2: inventory becomes -1; C1-->>S: Success; C2-->>S: Success;",
+    "fix_explanation": "Replace the primitive integer with an AtomicInteger and use the compareAndSet method or wrap the logic in a synchronized block to ensure atomic updates."
+  },
+  {
+    "name": "Global Thread Pool Paralysis",
+    "type": "Resource Starvation / Denial of Service",
+    "severity": "Critical",
+    "thought_signature": "The application uses CompletableFuture.supplyAsync without a dedicated executor, which defaults to the shared ForkJoinPool.commonPool. An attacker can flood this endpoint with requests to saturate the common pool, effectively freezing all other JVM components that rely on parallel streams or shared futures.",
+    "trigger_endpoint": "/api/heavy-task",
+    "diagram_code": "sequenceDiagram; participant A as Attacker; participant FJP as ForkJoinPool (Common); participant APP as Other App Logic; A->>FJP: Task 1 (Heavy Math); A->>FJP: Task 2 (Heavy Math); A->>FJP: Task N (Heavy Math); Note over FJP: All worker threads busy; APP->>FJP: Parallel Stream Request; FJP-->>APP: Blocked / Timed Out; ",
+    "fix_explanation": "Define a custom ThreadPoolTaskExecutor with specific resource limits and pass it as the second argument to supplyAsync."
+  },
+  {
+    "name": "The God-Mode Reset Button",
+    "type": "Broken Access Control / Missing Authentication",
+    "severity": "Critical",
+    "thought_signature": "The reset endpoint allows any network-level caller to clear system logs and manipulate business state without any identity verification. This facilitates audit log tampering and enables attackers to repeatedly reset inventory to bypass exhaustion limits.",
+    "trigger_endpoint": "/api/reset",
+    "diagram_code": "sequenceDiagram; participant U as Unauthorized User; participant S as Server; U->>S: POST /api/reset; S->>S: accessLog.clear(); S->>S: inventory = 100; S-->>U: HTTP 200 'System Reset'; Note over S: Evidence of previous activity deleted;",
+    "fix_explanation": "Implement Spring Security to restrict access to the /reset endpoint to users with the 'ADMIN' role and require valid authentication tokens."
+  },
+  {
+    "name": "Log Queue Saturation DoS",
+    "type": "Denial of Service / Shared Resource Exhaustion",
+    "severity": "High",
+    "thought_signature": "The accessLog uses a fixed-capacity LinkedBlockingQueue that is shared across all sessions without rate limiting. An attacker can fill this queue rapidly, causing the system to return 503 errors and preventing legitimate telemetry from being captured.",
+    "trigger_endpoint": "/api/log",
+    "diagram_code": "sequenceDiagram; participant A as Attacker; participant Q as accessLog (Queue 1000); participant U as Legitimate User; A->>Q: offer(data) x 1000; Note over Q: Queue Full; U->>Q: offer(legit_data); Q-->>U: offer() returns false; U-->>S: Error 503 Returned;",
+    "fix_explanation": "Implement request rate-limiting per IP address and consider using a non-blocking logging framework that handles backpressure or overflows more gracefully."
+  }
+]

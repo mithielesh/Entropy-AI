@@ -1,18 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Zap, ArrowRight, Activity, Shield, Cpu, BarChart3, Terminal } from 'lucide-react';
+import { 
+  Zap, 
+  ArrowRight, 
+  Activity, 
+  Shield, 
+  Cpu, 
+  BarChart3, 
+  Terminal,
+  LayoutDashboard 
+} from 'lucide-react';
 
+// 1. Updated Interface to accept the login state
 interface LandingPageProps {
   onEnterLightning: () => void;
   onEnterAuth: (type: 'login' | 'signup') => void;
+  isLoggedIn: boolean;
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onEnterLightning, onEnterAuth }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ 
+  onEnterLightning, 
+  onEnterAuth, 
+  isLoggedIn // 2. Destructured here
+}) => {
 
-  // --- 1. THE FAKE TERMINAL LOGIC (FIXED FOR HYDRATION) ---
+  // --- TERMINAL LOGIC ---
   const [terminalStep, setTerminalStep] = useState(0);
   
-  // We use hardcoded strings for time to prevent Server/Client mismatches
   const terminalLogs = [
     { text: "> Initializing entropy kernels...", time: "00:00:01" },
     { text: "> Connecting to neural mesh [SECURE]...", time: "00:00:04" },
@@ -27,7 +41,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterLightning, onEnterAuth
   useEffect(() => {
     const timer = setInterval(() => {
       setTerminalStep((prev) => (prev < terminalLogs.length - 1 ? prev + 1 : 0));
-    }, 800); // New log every 0.8 seconds
+    }, 800);
     return () => clearInterval(timer);
   }, []);
 
@@ -46,19 +60,33 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterLightning, onEnterAuth
           <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
           ENTROPY<span className="text-gray-600">.AI</span>
         </div>
+        
+        {/* 3. CONDITIONAL BUTTONS */}
         <div className="flex gap-4">
-          <button 
-            onClick={() => onEnterAuth('login')}
-            className="text-sm text-gray-400 hover:text-white transition-colors"
-          >
-            Log in
-          </button>
-          <button 
-            onClick={() => onEnterAuth('signup')}
-            className="px-4 py-2 text-sm bg-white/10 hover:bg-white/20 border border-white/10 rounded-full text-white transition-all backdrop-blur-sm"
-          >
-            Sign Up
-          </button>
+          {isLoggedIn ? (
+            <button 
+              onClick={() => onEnterAuth('login')} // Parent handles the redirect to Dashboard
+              className="px-6 py-2 text-sm bg-purple-600 hover:bg-purple-500 rounded-full text-white font-bold transition-all shadow-[0_0_20px_-5px_rgba(168,85,247,0.4)] flex items-center gap-2"
+            >
+              <LayoutDashboard size={16} />
+              Launch Dashboard
+            </button>
+          ) : (
+            <>
+              <button 
+                onClick={() => onEnterAuth('login')}
+                className="text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                Log in
+              </button>
+              <button 
+                onClick={() => onEnterAuth('signup')}
+                className="px-4 py-2 text-sm bg-white/10 hover:bg-white/20 border border-white/10 rounded-full text-white transition-all backdrop-blur-sm"
+              >
+                Sign Up
+              </button>
+            </>
+          )}
         </div>
       </nav>
 
@@ -152,7 +180,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterLightning, onEnterAuth
                     animate={{ opacity: 1, x: 0 }}
                     className={`${log.text.includes('CRITICAL') ? 'text-red-400' : log.text.includes('DETECTED') ? 'text-purple-400 font-bold' : 'text-green-400/80'}`}
                   >
-                    {/* Replaced dynamic Date with static time prop */}
                     <span className="opacity-50 mr-2">[{log.time}]</span>
                     {log.text}
                   </motion.div>
@@ -238,7 +265,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterLightning, onEnterAuth
                   <p className="text-gray-400">Start analyzing your data streams in less than 30 seconds.</p>
                </div>
                <button onClick={onEnterLightning} className="px-6 py-3 bg-white text-black rounded-full font-bold hover:scale-105 transition-transform">
-                 Start Now
+                  Start Now
                </button>
             </motion.div>
         </div>
