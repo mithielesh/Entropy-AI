@@ -3,3 +3,6 @@ requests
 matplotlib
 numpy
 colorama
+python-dotenv
+fastapi
+uvicorn
