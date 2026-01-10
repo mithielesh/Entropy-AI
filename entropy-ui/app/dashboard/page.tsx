@@ -15,13 +15,12 @@ import {
   Activity,
   Zap
 } from 'lucide-react';
-import { motion } from 'framer-motion';
 
 export default function DashboardPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('overview');
 
-  // Mock Data for "Recent Scans"
+  // Mock Data for "Recent Scans" (We will replace this in Phase 5)
   const projects = [
     { id: 1, name: "Alpha_Protocol_01", date: "2 mins ago", status: "Critical", entropy: "98%" },
     { id: 2, name: "Neural_Net_V2", date: "4 hours ago", status: "Stable", entropy: "12%" },
@@ -57,7 +56,12 @@ export default function DashboardPage() {
                  <p className="text-xs font-bold truncate">Operative_001</p>
                  <p className="text-[10px] text-gray-500 truncate">Pro License</p>
               </div>
-              <LogOut size={14} className="text-gray-500 group-hover:text-red-400 transition-colors" onClick={() => router.push('/')} />
+              
+              {/* --- LOGOUT BUTTON FIXED HERE --- */}
+              <button onClick={() => router.replace('/auth/login')}>
+                 <LogOut size={14} className="text-gray-500 group-hover:text-red-400 transition-colors" />
+              </button>
+
            </div>
         </div>
       </aside>
